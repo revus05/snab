@@ -38,10 +38,17 @@ type OrderItemState = {
   quantity: string;
 };
 
-function createItem(products: OrderModalProduct[]): OrderItemState {
+function createItem(
+  products: OrderModalProduct[],
+  excludedProductIds: string[] = [],
+): OrderItemState {
+  const excludedSet = new Set(excludedProductIds);
+  const availableProduct = products.find(
+    (product) => !excludedSet.has(product.id),
+  );
   return {
     id: crypto.randomUUID(),
-    productId: products[0]?.id ?? "",
+    productId: availableProduct?.id ?? products[0]?.id ?? "",
     quantity: "1",
   };
 }
@@ -55,9 +62,23 @@ export function CreateOrderModal({ users, products }: CreateOrderModalProps) {
   ]);
   const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const selectedProductIds = React.useMemo(
+    () =>
+      new Set(
+        items.map((item) => item.productId).filter((productId) => productId),
+      ),
+    [items],
+  );
+  const canAddItem = selectedProductIds.size < products.length;
 
   const addItem = () => {
-    setItems((prev) => [...prev, createItem(products)]);
+    setItems((prev) => [
+      ...prev,
+      createItem(
+        products,
+        prev.map((item) => item.productId),
+      ),
+    ]);
   };
 
   const removeItem = (index: number) => {
@@ -89,6 +110,15 @@ export function CreateOrderModal({ users, products }: CreateOrderModalProps) {
 
     if (!userId || normalizedItems.length === 0) {
       setError("Заполните пользователя и хотя бы один товар.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const uniqueProductIds = new Set(
+      normalizedItems.map((item) => item.productId),
+    );
+    if (uniqueProductIds.size !== normalizedItems.length) {
+      setError("Один и тот же товар нельзя добавить в заказ дважды.");
       setIsSubmitting(false);
       return;
     }
@@ -149,63 +179,88 @@ export function CreateOrderModal({ users, products }: CreateOrderModalProps) {
           <div className="space-y-2">
             <Label>Позиции заказа</Label>
             {items.map((item, index) => (
-              <div
-                key={item.id}
-                className="grid grid-cols-[1fr_140px_auto] items-end gap-2"
-              >
-                <div className="space-y-1">
-                  <Label
-                    htmlFor={`product-${index}`}
-                    className="text-xs text-muted-foreground"
+              <div key={item.id}>
+                <div className="grid grid-cols-[1fr_140px_auto] items-end gap-2">
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor={`product-${index}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Товар
+                    </Label>
+                    <select
+                      id={`product-${index}`}
+                      className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+                      value={item.productId}
+                      onChange={(event) =>
+                        updateItem(index, { productId: event.target.value })
+                      }
+                      required
+                    >
+                      {products
+                        .filter((product) => {
+                          const selectedByOtherRows = items.some(
+                            (otherItem, otherIndex) =>
+                              otherIndex !== index &&
+                              otherItem.productId === product.id,
+                          );
+                          return (
+                            product.id === item.productId ||
+                            !selectedByOtherRows
+                          );
+                        })
+                        .map((product) => (
+                          <option
+                            key={product.id}
+                            value={product.id}
+                            className="text-black"
+                          >
+                            {product.name} (остаток: {product.stock})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label
+                      htmlFor={`qty-${index}`}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Кол-во
+                    </Label>
+                    <Input
+                      id={`qty-${index}`}
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(event) =>
+                        updateItem(index, { quantity: event.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => removeItem(index)}
+                    disabled={items.length === 1}
                   >
-                    Товар
-                  </Label>
-                  <select
-                    id={`product-${index}`}
-                    className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-                    value={item.productId}
-                    onChange={(event) =>
-                      updateItem(index, { productId: event.target.value })
-                    }
-                    required
-                  >
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} (остаток: {product.stock})
-                      </option>
-                    ))}
-                  </select>
+                    <Trash2 className="size-4" />
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor={`qty-${index}`}
-                    className="text-xs text-muted-foreground"
-                  >
-                    Кол-во
-                  </Label>
-                  <Input
-                    id={`qty-${index}`}
-                    type="number"
-                    min={1}
-                    value={item.quantity}
-                    onChange={(event) =>
-                      updateItem(index, { quantity: event.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => removeItem(index)}
-                  disabled={items.length === 1}
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                {index === items.length - 1 && !canAddItem ? (
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    Все товары уже добавлены в заказ.
+                  </p>
+                ) : null}
               </div>
             ))}
-            <Button type="button" variant="outline" onClick={addItem}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addItem}
+              disabled={!canAddItem}
+            >
               <Plus className="size-4" />
               Добавить позицию
             </Button>

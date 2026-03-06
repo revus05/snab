@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { isAuthPage } from "@/src/shared/lib/routes";
+import { ProfileNavIcon } from "@/src/shared/ui/profile-nav-icon";
 
 const links = [
   { href: "/", label: "Заказы", icon: ClipboardList },
@@ -39,7 +40,11 @@ export function Sidebar() {
                   : "hover:bg-muted hover:text-foreground",
               )}
             >
-              <Icon className="size-4" />
+              {link.href === "/profile" ? (
+                <ProfileNavIcon className="size-4" />
+              ) : (
+                <Icon className="size-4" />
+              )}
               <span>{link.label}</span>
             </Link>
           );

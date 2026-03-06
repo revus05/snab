@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { OrderStatus, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -28,9 +28,18 @@ export async function GET(request: Request) {
     return unauthorizedResponse();
   }
 
+  const url = new URL(request.url);
+  const statusParam = url.searchParams.get("status");
+  const status =
+    statusParam === "COMPLETED" || statusParam === "PENDING"
+      ? statusParam
+      : null;
+
   const orders = await prisma.order.findMany({
-    where:
-      session.role === UserRole.ADMIN ? undefined : { userId: session.userId },
+    where: {
+      ...(session.role === UserRole.ADMIN ? {} : { userId: session.userId }),
+      ...(status ? { status } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: {
       user: {
@@ -71,9 +80,20 @@ export async function POST(request: Request) {
     );
   }
 
+  const uniqueProductIds = new Set(
+    parsed.data.items.map((item) => item.productId),
+  );
+  if (uniqueProductIds.size !== parsed.data.items.length) {
+    return NextResponse.json(
+      { error: "Один и тот же товар нельзя добавить в заказ дважды" },
+      { status: 400 },
+    );
+  }
+
   const order = await prisma.order.create({
     data: {
       userId: parsed.data.userId,
+      status: OrderStatus.PENDING,
       items: {
         create: parsed.data.items.map((item) => ({
           productId: item.productId,

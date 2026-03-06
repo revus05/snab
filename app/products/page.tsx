@@ -1,5 +1,6 @@
 import { UserRole } from "@prisma/client";
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   Card,
@@ -37,32 +38,34 @@ export default async function ProductsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {products.map((product) => (
-          <Card key={product.id}>
-            <CardHeader>
-              <CardTitle>{product.name}</CardTitle>
-              <CardDescription>Остаток: {product.stock}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {product.description}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {product.images.slice(0, 4).map((image) => (
-                  <div
-                    key={image}
-                    className="overflow-hidden rounded-md border"
-                  >
-                    <Image
-                      src={image}
-                      alt={product.name}
-                      width={220}
-                      height={150}
-                      className="h-24 w-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
+          <Card key={product.id} className="transition-shadow hover:shadow-md">
+            <Link href={`/products/${product.id}`} className="block">
+              <CardHeader>
+                <CardTitle>{product.name}</CardTitle>
+                <CardDescription>Остаток: {product.stock}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  {product.description}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {product.images.slice(0, 4).map((image) => (
+                    <div
+                      key={image}
+                      className="overflow-hidden rounded-md border"
+                    >
+                      <Image
+                        src={image}
+                        alt={product.name}
+                        width={220}
+                        height={150}
+                        className="h-24 w-full object-cover"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Link>
           </Card>
         ))}
       </div>

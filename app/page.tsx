@@ -1,6 +1,7 @@
 import { UserRole } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -8,22 +9,31 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { CreateOrderModal } from "@/src/features/orders/create-order-modal";
 import { getSessionFromCookies } from "@/src/shared/lib/auth";
 import { prisma } from "@/src/shared/lib/prisma";
 
-export default async function HomePage() {
+type PageProps = {
+  searchParams: Promise<{ status?: string }>;
+};
+
+export default async function HomePage({ searchParams }: PageProps) {
+  const { status } = await searchParams;
   const session = await getSessionFromCookies();
   if (!session) {
     redirect("/login");
   }
 
+  const activeTab = status === "completed" ? "completed" : "pending";
+  const orderStatus = activeTab === "completed" ? "COMPLETED" : "PENDING";
+
   const [orders, users, products] = await Promise.all([
     prisma.order.findMany({
-      where:
-        session.role === UserRole.ADMIN
-          ? undefined
-          : { userId: session.userId },
+      where: {
+        ...(session.role === UserRole.ADMIN ? {} : { userId: session.userId }),
+        status: orderStatus,
+      },
       orderBy: { createdAt: "desc" },
       include: {
         user: {
@@ -65,34 +75,80 @@ export default async function HomePage() {
           <CreateOrderModal users={users} products={products} />
         ) : null}
       </div>
+
+      <div className="inline-flex rounded-lg border bg-muted/30 p-1">
+        <Link
+          href="/?status=pending"
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm transition-colors",
+            activeTab === "pending"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          В очереди
+        </Link>
+        <Link
+          href="/?status=completed"
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm transition-colors",
+            activeTab === "completed"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Выполнены
+        </Link>
+      </div>
+
       {orders.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Заказов пока нет.</p>
+        <p className="text-sm text-muted-foreground">
+          {activeTab === "pending"
+            ? "Заказов в очереди пока нет."
+            : "Выполненных заказов пока нет."}
+        </p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {orders.map((order) => (
-            <Card key={order.id}>
-              <CardHeader>
-                <CardTitle>Заказ #{order.id.slice(0, 8)}</CardTitle>
-                <CardDescription>
-                  {new Date(order.createdAt).toLocaleString("ru-RU")} ·{" "}
-                  {order.user.firstName} {order.user.lastName}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="text-sm">
-                      <Link
-                        href={`/orders/${order.id}/products/${item.productId}`}
-                        className="text-primary underline-offset-4 hover:underline"
+            <Card key={order.id} className="transition-shadow hover:shadow-md">
+              <Link href={`/orders/${order.id}`} className="block">
+                <CardHeader className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle>Заказ #{order.id.slice(0, 8)}</CardTitle>
+                    <Badge
+                      variant={
+                        order.status === "COMPLETED" ? "outline" : "secondary"
+                      }
+                    >
+                      {order.status === "COMPLETED" ? "Выполнен" : "В очереди"}
+                    </Badge>
+                  </div>
+                  <CardDescription>
+                    {new Date(order.createdAt).toLocaleString("ru-RU")} ·{" "}
+                    {order.user.firstName} {order.user.lastName}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {order.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border bg-muted/20 p-2"
                       >
-                        {item.product.name}
-                      </Link>{" "}
-                      · Кол-во: {item.quantity}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
+                        <p className="text-sm font-medium">
+                          {item.product.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Нужно: {item.quantity}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Остаток: {item.product.stock}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Link>
             </Card>
           ))}
         </div>

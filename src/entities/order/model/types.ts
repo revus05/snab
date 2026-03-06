@@ -7,6 +7,8 @@ export type OrderItemEntity = {
 export type OrderEntity = {
   id: string;
   userId: string;
+  status: "PENDING" | "COMPLETED";
+  completedAt: Date | null;
   createdAt: Date;
   items: OrderItemEntity[];
 };

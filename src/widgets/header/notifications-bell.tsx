@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,10 +42,21 @@ export function NotificationsBell() {
         return;
       }
       const requestsData = await requestsResponse.json();
-      setItems(requestsData.requests ?? []);
+      const pendingItems = (requestsData.requests ?? []).filter(
+        (request: RestockRequestListItem) => request.status === "PENDING",
+      );
+      setItems(pendingItems);
+    };
+
+    const onRestockUpdated = () => {
+      load().catch(() => undefined);
     };
 
     load().catch(() => undefined);
+    window.addEventListener("restock-updated", onRestockUpdated);
+    return () => {
+      window.removeEventListener("restock-updated", onRestockUpdated);
+    };
   }, []);
 
   if (!isAdmin) {
@@ -54,8 +66,18 @@ export function NotificationsBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label="Уведомления">
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label="Уведомления"
+          className="relative"
+        >
           <Bell className="size-4" />
+          {items.length > 0 ? (
+            <span className="absolute -top-1 -right-1 rounded-full bg-destructive px-1 text-[10px] leading-4 text-destructive-foreground">
+              {Math.min(items.length, 99)}
+            </span>
+          ) : null}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
@@ -69,14 +91,20 @@ export function NotificationsBell() {
         ) : (
           items.slice(0, 10).map((item) => (
             <DropdownMenuItem
+              asChild
               key={item.id}
               className="flex-col items-start gap-0"
             >
-              <div className="font-medium">{item.product.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {item.user.firstName} {item.user.lastName}, кол-во:{" "}
-                {item.quantity}
-              </div>
+              <Link href={`/restock-requests/${item.id}`} className="w-full">
+                <div className="font-medium">{item.product.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {item.user.firstName} {item.user.lastName}, кол-во:{" "}
+                  {item.quantity}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {new Date(item.createdAt).toLocaleString("ru-RU")}
+                </div>
+              </Link>
             </DropdownMenuItem>
           ))
         )}
