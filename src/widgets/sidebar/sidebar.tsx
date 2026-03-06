@@ -4,7 +4,6 @@ import { Box, ClipboardList, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { isAuthPage } from "@/src/shared/lib/routes";
 import { ProfileNavIcon } from "@/src/shared/ui/profile-nav-icon";
 
 const links = [
@@ -13,12 +12,12 @@ const links = [
   { href: "/profile", label: "Профиль", icon: User },
 ];
 
-export function Sidebar() {
-  const pathname = usePathname();
+type SidebarProps = {
+  initialAvatarUrl?: string | null;
+};
 
-  if (isAuthPage(pathname)) {
-    return null;
-  }
+export function Sidebar({ initialAvatarUrl = null }: SidebarProps) {
+  const pathname = usePathname();
 
   return (
     <aside className="hidden border-r md:block">
@@ -41,7 +40,10 @@ export function Sidebar() {
               )}
             >
               {link.href === "/profile" ? (
-                <ProfileNavIcon className="size-4" />
+                <ProfileNavIcon
+                  className="size-4"
+                  initialAvatarUrl={initialAvatarUrl}
+                />
               ) : (
                 <Icon className="size-4" />
               )}

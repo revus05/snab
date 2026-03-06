@@ -3,10 +3,15 @@
 import { Loader2, Save, Upload } from "lucide-react";
 import Image from "next/image";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type ProfileFormProps = {
   firstName: string;
@@ -15,6 +20,8 @@ type ProfileFormProps = {
   email: string;
 };
 
+const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
+
 export function ProfileForm(initial: ProfileFormProps) {
   const [firstName, setFirstName] = React.useState(initial.firstName);
   const [lastName, setLastName] = React.useState(initial.lastName);
@@ -22,7 +29,6 @@ export function ProfileForm(initial: ProfileFormProps) {
     initial.avatarUrl,
   );
   const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
-  const [status, setStatus] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const previewAvatarUrl = React.useMemo(() => {
@@ -40,9 +46,30 @@ export function ProfileForm(initial: ProfileFormProps) {
     };
   }, [previewAvatarUrl]);
 
+  const onAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0] ?? null;
+    if (!nextFile) {
+      setAvatarFile(null);
+      return;
+    }
+
+    if (!nextFile.type.startsWith("image/")) {
+      toast.error("Можно загрузить только изображение.");
+      event.target.value = "";
+      return;
+    }
+
+    if (nextFile.size > MAX_AVATAR_SIZE_BYTES) {
+      toast.error("Размер аватара не должен превышать 5 МБ.");
+      event.target.value = "";
+      return;
+    }
+
+    setAvatarFile(nextFile);
+  };
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus(null);
     setIsSubmitting(true);
 
     const formData = new FormData();
@@ -53,22 +80,30 @@ export function ProfileForm(initial: ProfileFormProps) {
       formData.append("avatar", avatarFile);
     }
 
-    const response = await fetch("/api/users/me", {
-      method: "PATCH",
-      body: formData,
-    });
+    try {
+      const response = await fetch("/api/users/me", {
+        method: "PATCH",
+        body: formData,
+      });
 
-    if (!response.ok) {
-      setStatus("Не удалось обновить профиль.");
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(response, "Не удалось обновить профиль."),
+        );
+      }
+
+      const data = await response.json().catch(() => null);
+      setAvatarUrl(data?.user?.avatarUrl ?? avatarUrl);
+      setAvatarFile(null);
+      window.dispatchEvent(new Event("profile-updated"));
+      toast.success("Профиль обновлен.");
+    } catch (error) {
+      toast.error(
+        resolveClientErrorMessage(error, "Не удалось обновить профиль."),
+      );
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    const data = await response.json().catch(() => null);
-    setAvatarUrl(data?.user?.avatarUrl ?? avatarUrl);
-    setAvatarFile(null);
-    setStatus("Профиль обновлен.");
-    setIsSubmitting(false);
   };
 
   return (
@@ -98,9 +133,7 @@ export function ProfileForm(initial: ProfileFormProps) {
               id="avatar"
               type="file"
               accept="image/*"
-              onChange={(event) =>
-                setAvatarFile(event.target.files?.[0] ?? null)
-              }
+              onChange={onAvatarChange}
             />
           </div>
         </div>
@@ -137,10 +170,6 @@ export function ProfileForm(initial: ProfileFormProps) {
             {isSubmitting ? "Сохраняем..." : "Сохранить"}
           </Button>
         </form>
-
-        {status ? (
-          <p className="text-sm text-muted-foreground">{status}</p>
-        ) : null}
       </CardContent>
     </Card>
   );

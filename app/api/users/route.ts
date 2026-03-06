@@ -1,4 +1,4 @@
-import { UserRole } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid registration payload" },
+      { error: "Проверьте корректность данных регистрации." },
       { status: 400 },
     );
   }
@@ -64,44 +64,65 @@ export async function POST(request: Request) {
     select: { id: true },
   });
   if (existing) {
-    return NextResponse.json({ error: "User already exists" }, { status: 409 });
+    return NextResponse.json(
+      { error: "Пользователь с таким email уже существует." },
+      { status: 409 },
+    );
   }
 
-  const passwordHash = await hashPassword(parsed.data.password);
-  const user = await prisma.user.create({
-    data: {
-      email: parsed.data.email,
-      firstName: parsed.data.firstName,
-      lastName: parsed.data.lastName,
-      password: passwordHash,
-      role: UserRole.USER,
-    },
-  });
+  try {
+    const passwordHash = await hashPassword(parsed.data.password);
+    const user = await prisma.user.create({
+      data: {
+        email: parsed.data.email,
+        firstName: parsed.data.firstName,
+        lastName: parsed.data.lastName,
+        password: passwordHash,
+        role: UserRole.USER,
+      },
+    });
 
-  const token = signSessionToken({
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-  });
-
-  const response = NextResponse.json({
-    user: {
-      id: user.id,
+    const token = signSessionToken({
+      userId: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
       role: user.role,
-      avatarUrl: user.avatarUrl,
-    },
-  });
+    });
 
-  response.cookies.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+    const response = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+      },
+    });
 
-  return response;
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Пользователь с таким email уже существует." },
+        { status: 409 },
+      );
+    }
+
+    console.error("User registration failed:", error);
+    return NextResponse.json(
+      { error: "Не удалось зарегистрироваться. Попробуйте позже." },
+      { status: 500 },
+    );
+  }
 }

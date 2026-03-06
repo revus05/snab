@@ -3,6 +3,7 @@
 import { Loader2, PackageCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type CreateSupplierRequestPopoverProps = {
   productId: string;
@@ -28,36 +33,40 @@ export function CreateSupplierRequestPopover({
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [quantity, setQuantity] = React.useState(String(defaultQuantity));
-  const [status, setStatus] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus(null);
     setIsSubmitting(true);
 
-    const response = await fetch("/api/supplier-requests", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        productId,
-        restockRequestId,
-        quantity: Number(quantity),
-      }),
-    });
+    try {
+      const response = await fetch("/api/supplier-requests", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          productId,
+          restockRequestId,
+          quantity: Number(quantity),
+        }),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setStatus(data?.error ?? "Не удалось обработать запрос.");
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(response, "Не удалось обработать запрос."),
+        );
+      }
+
+      toast.success("Запрос поставщику отправлен. Остаток обновлен.");
+      setOpen(false);
+      window.dispatchEvent(new Event("restock-updated"));
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        resolveClientErrorMessage(error, "Не удалось обработать запрос."),
+      );
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    setStatus("Запрос поставщику отправлен. Остаток обновлен.");
-    setIsSubmitting(false);
-    setOpen(false);
-    window.dispatchEvent(new Event("restock-updated"));
-    router.refresh();
   };
 
   return (
@@ -92,9 +101,6 @@ export function CreateSupplierRequestPopover({
             {isSubmitting ? "Отправляем..." : "Отправить"}
           </Button>
         </form>
-        {status ? (
-          <p className="text-xs text-muted-foreground">{status}</p>
-        ) : null}
       </PopoverContent>
     </Popover>
   );

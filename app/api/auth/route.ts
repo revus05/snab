@@ -42,51 +42,65 @@ export async function POST(request: Request) {
 
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid login payload" },
+      { error: "Проверьте корректность данных для входа." },
       { status: 400 },
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
-  });
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email: parsed.data.email },
+    });
 
-  if (!user) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+    if (!user) {
+      return NextResponse.json(
+        { error: "Неверный email или пароль." },
+        { status: 401 },
+      );
+    }
 
-  const isValidPassword = await comparePassword(
-    parsed.data.password,
-    user.password,
-  );
-  if (!isValidPassword) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
-  }
+    const isValidPassword = await comparePassword(
+      parsed.data.password,
+      user.password,
+    );
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { error: "Неверный email или пароль." },
+        { status: 401 },
+      );
+    }
 
-  const token = signSessionToken({
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-  });
-
-  const response = NextResponse.json({
-    user: {
-      id: user.id,
+    const token = signSessionToken({
+      userId: user.id,
       email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
       role: user.role,
-      avatarUrl: user.avatarUrl,
-    },
-  });
+    });
 
-  response.cookies.set(AUTH_COOKIE_NAME, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+    const response = NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+      },
+    });
 
-  return response;
+    response.cookies.set(AUTH_COOKIE_NAME, token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Login failed:", error);
+    return NextResponse.json(
+      { error: "Не удалось выполнить вход. Попробуйте позже." },
+      { status: 500 },
+    );
+  }
 }

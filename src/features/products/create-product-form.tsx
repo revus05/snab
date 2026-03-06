@@ -3,10 +3,15 @@
 import { Loader2, Save, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type CreateProductFormProps = {
   onSuccess?: () => void;
@@ -18,12 +23,10 @@ export function CreateProductForm({ onSuccess }: CreateProductFormProps) {
   const [description, setDescription] = React.useState("");
   const [stock, setStock] = React.useState("0");
   const [files, setFiles] = React.useState<File[]>([]);
-  const [error, setError] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
     setIsSubmitting(true);
 
     const formData = new FormData();
@@ -35,25 +38,32 @@ export function CreateProductForm({ onSuccess }: CreateProductFormProps) {
       formData.append("images", file);
     }
 
-    const response = await fetch("/api/products", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        body: formData,
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "Не удалось создать продукт");
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(response, "Не удалось создать продукт"),
+        );
+      }
+
+      setName("");
+      setDescription("");
+      setStock("0");
+      setFiles([]);
+      toast.success("Продукт создан.");
+      router.refresh();
+      onSuccess?.();
+    } catch (error) {
+      toast.error(
+        resolveClientErrorMessage(error, "Не удалось создать продукт"),
+      );
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    setName("");
-    setDescription("");
-    setStock("0");
-    setFiles([]);
-    setIsSubmitting(false);
-    router.refresh();
-    onSuccess?.();
   };
 
   return (
@@ -111,7 +121,6 @@ export function CreateProductForm({ onSuccess }: CreateProductFormProps) {
         )}
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <Button type="submit" disabled={isSubmitting}>
         {isSubmitting ? (
           <Loader2 className="size-4 animate-spin" />

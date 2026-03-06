@@ -3,7 +3,12 @@
 import { Check, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type MarkOrderCompleteButtonProps = {
   orderId: string;
@@ -22,19 +27,32 @@ export function MarkOrderCompleteButton({
     setError(null);
     setIsSubmitting(true);
 
-    const response = await fetch(`/api/orders/${orderId}`, {
-      method: "PATCH",
-    });
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "PATCH",
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "Не удалось обновить статус заказа.");
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(
+            response,
+            "Не удалось обновить статус заказа.",
+          ),
+        );
+      }
+
+      toast.success("Заказ отмечен как выполненный.");
+      router.refresh();
+    } catch (error) {
+      const message = resolveClientErrorMessage(
+        error,
+        "Не удалось обновить статус заказа.",
+      );
+      setError(message);
+      toast.error(message);
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    setIsSubmitting(false);
-    router.refresh();
   };
 
   return (

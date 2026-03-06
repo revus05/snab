@@ -3,6 +3,7 @@
 import { Loader2, PackagePlus, Plus, Save, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -13,6 +14,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type OrderModalUser = {
   id: string;
@@ -109,7 +114,9 @@ export function CreateOrderModal({ users, products }: CreateOrderModalProps) {
       );
 
     if (!userId || normalizedItems.length === 0) {
-      setError("Заполните пользователя и хотя бы один товар.");
+      const message = "Заполните пользователя и хотя бы один товар.";
+      setError(message);
+      toast.error(message);
       setIsSubmitting(false);
       return;
     }
@@ -118,31 +125,43 @@ export function CreateOrderModal({ users, products }: CreateOrderModalProps) {
       normalizedItems.map((item) => item.productId),
     );
     if (uniqueProductIds.size !== normalizedItems.length) {
-      setError("Один и тот же товар нельзя добавить в заказ дважды.");
+      const message = "Один и тот же товар нельзя добавить в заказ дважды.";
+      setError(message);
+      toast.error(message);
       setIsSubmitting(false);
       return;
     }
 
-    const response = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        items: normalizedItems,
-      }),
-    });
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          items: normalizedItems,
+        }),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "Не удалось создать заказ");
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(response, "Не удалось создать заказ"),
+        );
+      }
+
+      toast.success("Заказ создан.");
+      setOpen(false);
+      setItems([createItem(products)]);
+      router.refresh();
+    } catch (error) {
+      const message = resolveClientErrorMessage(
+        error,
+        "Не удалось создать заказ",
+      );
+      setError(message);
+      toast.error(message);
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    setIsSubmitting(false);
-    setOpen(false);
-    setItems([createItem(products)]);
-    router.refresh();
   };
 
   return (

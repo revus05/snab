@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Roboto } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
+import { getSessionFromCookies } from "@/src/shared/lib/auth";
+import { prisma } from "@/src/shared/lib/prisma";
+import {
+  normalizeTheme,
+  THEME_COOKIE_NAME,
+  type Theme,
+} from "@/src/shared/lib/theme";
 import { ThemeProvider } from "@/src/shared/ui/theme-provider";
-import { BottomNav } from "@/src/widgets/bottom-nav/bottom-nav";
-import { Header } from "@/src/widgets/header/header";
-import { Sidebar } from "@/src/widgets/sidebar/sidebar";
 
 const roboto = Roboto({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -23,25 +29,47 @@ export const metadata: Metadata = {
   description: "Склад тканей, технических тканей и войлока",
 };
 
-export default function RootLayout({
+async function getInitialTheme(): Promise<Theme> {
+  const cookieStore = await cookies();
+  const cookieTheme = normalizeTheme(cookieStore.get(THEME_COOKIE_NAME)?.value);
+
+  const session = await getSessionFromCookies();
+  if (!session) {
+    return cookieTheme;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { theme: true },
+  });
+
+  if (!user) {
+    return cookieTheme;
+  }
+
+  return user.theme === "DARK" ? "dark" : "light";
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const initialTheme = await getInitialTheme();
+
   return (
-    <html lang="ru" suppressHydrationWarning className={roboto.variable}>
+    <html
+      lang="ru"
+      suppressHydrationWarning
+      className={`${roboto.variable} ${initialTheme === "dark" ? "dark" : ""}`}
+      style={{ colorScheme: initialTheme }}
+    >
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
-          <div className="min-h-screen bg-[radial-gradient(circle_at_top,_hsl(var(--primary)/0.15),_transparent_55%)]">
-            <Header />
-            <div className="mx-auto grid min-h-[calc(100vh-56px)] max-w-7xl md:grid-cols-[230px_1fr]">
-              <Sidebar />
-              <main className="p-4 pb-20 md:pb-6">{children}</main>
-            </div>
-            <BottomNav />
-          </div>
+        <ThemeProvider initialTheme={initialTheme}>
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   const parsed = createSupplierRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid supplier request payload" },
+      { error: "Некорректные данные запроса поставщику." },
       { status: 400 },
     );
   }
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       });
 
       if (!product) {
-        const error: ApiError = { status: 404, message: "Product not found" };
+        const error: ApiError = { status: 404, message: "Товар не найден." };
         throw error;
       }
 
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
         if (!restockRequest) {
           const error: ApiError = {
             status: 404,
-            message: "Restock request not found",
+            message: "Заявка на пополнение не найдена.",
           };
           throw error;
         }
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
         if (restockRequest.productId !== payload.productId) {
           const error: ApiError = {
             status: 400,
-            message: "Restock request does not belong to this product",
+            message: "Заявка на пополнение не принадлежит этому товару.",
           };
           throw error;
         }

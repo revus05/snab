@@ -1,95 +1,53 @@
 "use client";
 
 import * as React from "react";
-import { useEffect } from "react";
-
-type Theme = "light" | "dark" | "system";
-type ResolvedTheme = "light" | "dark";
+import type { Theme } from "@/src/shared/lib/theme";
 
 type ThemeContextValue = {
   theme: Theme;
-  resolvedTheme: ResolvedTheme;
+  resolvedTheme: Theme;
   setTheme: (theme: Theme) => void;
-  isMounted: boolean;
 };
 
-const STORAGE_KEY = "snab-theme";
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
 
-function getSystemTheme(): ResolvedTheme {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function normalizeTheme(value: string | null): Theme {
-  if (value === "light" || value === "dark" || value === "system") {
-    return value;
-  }
-  return "system";
-}
-
-function resolveTheme(theme: Theme): ResolvedTheme {
-  return theme === "system" ? getSystemTheme() : theme;
-}
-
-function applyDocumentTheme(theme: ResolvedTheme) {
+function applyDocumentTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === "dark");
+  document.documentElement.style.colorScheme = theme;
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = React.useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] =
-    React.useState<ResolvedTheme>("light");
-  const [isMounted, setIsMounted] = React.useState(false);
+type ThemeProviderProps = {
+  children: React.ReactNode;
+  initialTheme: Theme;
+};
 
-  useEffect(() => {
-    const initialTheme = normalizeTheme(
-      window.localStorage.getItem(STORAGE_KEY),
-    );
-    const initialResolvedTheme = resolveTheme(initialTheme);
-    setTheme(initialTheme);
-    setResolvedTheme(initialResolvedTheme);
-    applyDocumentTheme(initialResolvedTheme);
-    setIsMounted(true);
+export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
+  const [theme, setThemeState] = React.useState<Theme>(initialTheme);
+
+  React.useEffect(() => {
+    setThemeState(initialTheme);
+  }, [initialTheme]);
+
+  React.useEffect(() => {
+    applyDocumentTheme(theme);
+  }, [theme]);
+
+  const setTheme = React.useCallback((nextTheme: Theme) => {
+    setThemeState(nextTheme);
+
+    void fetch("/api/users/theme", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ theme: nextTheme }),
+    }).catch(() => undefined);
   }, []);
-
-  useEffect(() => {
-    if (!isMounted) {
-      return;
-    }
-    const nextResolvedTheme = resolveTheme(theme);
-    setResolvedTheme(nextResolvedTheme);
-    applyDocumentTheme(nextResolvedTheme);
-    window.localStorage.setItem(STORAGE_KEY, theme);
-  }, [theme, isMounted]);
-
-  useEffect(() => {
-    if (!isMounted || theme !== "system") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (event: MediaQueryListEvent) => {
-      const nextResolvedTheme = event.matches ? "dark" : "light";
-      setResolvedTheme(nextResolvedTheme);
-      applyDocumentTheme(nextResolvedTheme);
-    };
-
-    mediaQuery.addEventListener("change", onChange);
-    return () => mediaQuery.removeEventListener("change", onChange);
-  }, [theme, isMounted]);
 
   return (
     <ThemeContext.Provider
       value={{
         theme,
-        resolvedTheme,
+        resolvedTheme: theme,
         setTheme,
-        isMounted,
       }}
     >
       {children}

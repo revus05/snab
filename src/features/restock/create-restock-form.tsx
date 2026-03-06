@@ -3,9 +3,14 @@
 import { SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 type CreateRestockFormProps = {
   productId: string;
@@ -18,26 +23,34 @@ export function CreateRestockForm({
 }: CreateRestockFormProps) {
   const router = useRouter();
   const [quantity, setQuantity] = React.useState(String(defaultQuantity));
-  const [status, setStatus] = React.useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus(null);
+    setIsSubmitting(true);
 
-    const response = await fetch("/api/restock", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ productId, quantity: Number(quantity) }),
-    });
+    try {
+      const response = await fetch("/api/restock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ productId, quantity: Number(quantity) }),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setStatus(data?.error ?? "Не удалось создать заявку");
-      return;
+      if (!response.ok) {
+        throw new Error(
+          await readApiErrorMessage(response, "Не удалось создать заявку"),
+        );
+      }
+
+      toast.success("Заявка создана.");
+      router.refresh();
+    } catch (error) {
+      toast.error(
+        resolveClientErrorMessage(error, "Не удалось создать заявку"),
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setStatus("Заявка создана.");
-    router.refresh();
   };
 
   return (
@@ -53,13 +66,10 @@ export function CreateRestockForm({
           required
         />
       </div>
-      <Button type="submit">
+      <Button type="submit" disabled={isSubmitting}>
         <SendHorizontal className="size-4" />
-        Создать заявку на пополнение
+        {isSubmitting ? "Отправляем..." : "Создать заявку на пополнение"}
       </Button>
-      {status ? (
-        <p className="text-sm text-muted-foreground">{status}</p>
-      ) : null}
     </form>
   );
 }

@@ -81,7 +81,7 @@ export async function POST(request: Request) {
   const parsed = productSchema.safeParse(payload);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid product payload" },
+      { error: "Некорректные данные продукта." },
       { status: 400 },
     );
   }
@@ -103,7 +103,7 @@ export async function PUT(request: Request) {
   const parsed = productUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid product payload" },
+      { error: "Некорректные данные продукта." },
       { status: 400 },
     );
   }

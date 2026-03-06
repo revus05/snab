@@ -53,7 +53,7 @@ export async function POST(request: Request) {
   const parsed = createRestockSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid restock payload" },
+      { error: "Некорректные данные заявки на пополнение." },
       { status: 400 },
     );
   }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     select: { id: true, name: true },
   });
   if (!product) {
-    return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    return NextResponse.json({ error: "Товар не найден." }, { status: 404 });
   }
 
   const requestRecord = await prisma.restockRequest.create({

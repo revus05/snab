@@ -4,7 +4,6 @@ import { Box, ClipboardList, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { isAuthPage } from "@/src/shared/lib/routes";
 import { ProfileNavIcon } from "@/src/shared/ui/profile-nav-icon";
 
 const links = [
@@ -13,12 +12,12 @@ const links = [
   { href: "/profile", label: "Профиль", icon: User },
 ];
 
-export function BottomNav() {
-  const pathname = usePathname();
+type BottomNavProps = {
+  initialAvatarUrl?: string | null;
+};
 
-  if (isAuthPage(pathname)) {
-    return null;
-  }
+export function BottomNav({ initialAvatarUrl = null }: BottomNavProps) {
+  const pathname = usePathname();
 
   return (
     <nav className="fixed right-0 bottom-0 left-0 z-20 border-t bg-background/95 p-2 backdrop-blur md:hidden">
@@ -41,7 +40,10 @@ export function BottomNav() {
               )}
             >
               {link.href === "/profile" ? (
-                <ProfileNavIcon className="size-4" />
+                <ProfileNavIcon
+                  className="size-4"
+                  initialAvatarUrl={initialAvatarUrl}
+                />
               ) : (
                 <Icon className="size-4" />
               )}

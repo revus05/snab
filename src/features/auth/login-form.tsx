@@ -4,38 +4,45 @@ import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  readApiErrorMessage,
+  resolveClientErrorMessage,
+} from "@/src/shared/lib/client-errors";
 
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
-    setError(null);
 
-    const response = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const response = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      setError(data?.error ?? "Ошибка входа");
+      if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, "Ошибка входа"));
+      }
+
+      toast.success("Вход выполнен.");
+      router.push("/");
+      router.refresh();
+    } catch (error) {
+      toast.error(resolveClientErrorMessage(error, "Ошибка входа"));
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    router.push("/");
-    router.refresh();
   };
 
   return (
@@ -65,7 +72,6 @@ export function LoginForm() {
               required
             />
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={isLoading}>
             <LogIn className="size-4" />
             {isLoading ? "Входим..." : "Войти"}

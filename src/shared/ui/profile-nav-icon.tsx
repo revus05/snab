@@ -7,10 +7,16 @@ import { cn } from "@/lib/utils";
 
 type ProfileNavIconProps = {
   className?: string;
+  initialAvatarUrl?: string | null;
 };
 
-export function ProfileNavIcon({ className }: ProfileNavIconProps) {
-  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
+export function ProfileNavIcon({
+  className,
+  initialAvatarUrl = null,
+}: ProfileNavIconProps) {
+  const [avatarUrl, setAvatarUrl] = React.useState<string | null>(
+    initialAvatarUrl,
+  );
 
   React.useEffect(() => {
     const loadUser = async () => {
@@ -21,8 +27,20 @@ export function ProfileNavIcon({ className }: ProfileNavIconProps) {
       const data = await response.json().catch(() => null);
       setAvatarUrl(data?.user?.avatarUrl ?? null);
     };
+    const onProfileUpdated = () => {
+      loadUser().catch(() => undefined);
+    };
+
     loadUser().catch(() => undefined);
+    window.addEventListener("profile-updated", onProfileUpdated);
+    return () => {
+      window.removeEventListener("profile-updated", onProfileUpdated);
+    };
   }, []);
+
+  React.useEffect(() => {
+    setAvatarUrl(initialAvatarUrl);
+  }, [initialAvatarUrl]);
 
   if (!avatarUrl) {
     return <User className={cn("size-4", className)} />;
