@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CreateOrderModal } from "@/src/features/orders/create-order-modal";
 import { getSessionFromCookies } from "@/src/shared/lib/auth";
 import { prisma } from "@/src/shared/lib/prisma";
 
@@ -17,23 +18,53 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const orders = await prisma.order.findMany({
-    where:
-      session.role === UserRole.ADMIN ? undefined : { userId: session.userId },
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: {
-        select: { firstName: true, lastName: true, email: true },
+  const [orders, users, products] = await Promise.all([
+    prisma.order.findMany({
+      where:
+        session.role === UserRole.ADMIN
+          ? undefined
+          : { userId: session.userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+        items: {
+          include: { product: true },
+        },
       },
-      items: {
-        include: { product: true },
-      },
-    },
-  });
+    }),
+    session.role === UserRole.ADMIN
+      ? prisma.user.findMany({
+          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        })
+      : Promise.resolve([]),
+    session.role === UserRole.ADMIN
+      ? prisma.product.findMany({
+          orderBy: { name: "asc" },
+          select: {
+            id: true,
+            name: true,
+            stock: true,
+          },
+        })
+      : Promise.resolve([]),
+  ]);
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Заказы</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Заказы</h1>
+        {session.role === UserRole.ADMIN ? (
+          <CreateOrderModal users={users} products={products} />
+        ) : null}
+      </div>
       {orders.length === 0 ? (
         <p className="text-sm text-muted-foreground">Заказов пока нет.</p>
       ) : (

@@ -1,7 +1,7 @@
 "use client";
 
+import { Loader2, Save, Upload } from "lucide-react";
 import Image from "next/image";
-import { CldUploadWidget } from "next-cloudinary";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,25 +21,54 @@ export function ProfileForm(initial: ProfileFormProps) {
   const [avatarUrl, setAvatarUrl] = React.useState<string | null>(
     initial.avatarUrl,
   );
+  const [avatarFile, setAvatarFile] = React.useState<File | null>(null);
   const [status, setStatus] = React.useState<string | null>(null);
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  const previewAvatarUrl = React.useMemo(() => {
+    if (!avatarFile) {
+      return avatarUrl;
+    }
+    return URL.createObjectURL(avatarFile);
+  }, [avatarFile, avatarUrl]);
+
+  React.useEffect(() => {
+    return () => {
+      if (previewAvatarUrl?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewAvatarUrl);
+      }
+    };
+  }, [previewAvatarUrl]);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setStatus(null);
+    setIsSubmitting(true);
+
+    const formData = new FormData();
+    formData.append("firstName", firstName);
+    formData.append("lastName", lastName);
+    formData.append("currentAvatarUrl", avatarUrl ?? "");
+    if (avatarFile) {
+      formData.append("avatar", avatarFile);
+    }
 
     const response = await fetch("/api/users/me", {
       method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ firstName, lastName, avatarUrl }),
+      body: formData,
     });
 
     if (!response.ok) {
       setStatus("Не удалось обновить профиль.");
+      setIsSubmitting(false);
       return;
     }
 
+    const data = await response.json().catch(() => null);
+    setAvatarUrl(data?.user?.avatarUrl ?? avatarUrl);
+    setAvatarFile(null);
     setStatus("Профиль обновлен.");
+    setIsSubmitting(false);
   };
 
   return (
@@ -50,9 +79,9 @@ export function ProfileForm(initial: ProfileFormProps) {
       <CardContent className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="size-16 overflow-hidden rounded-full border bg-muted">
-            {avatarUrl ? (
+            {previewAvatarUrl ? (
               <Image
-                src={avatarUrl}
+                src={previewAvatarUrl}
                 alt="Avatar"
                 width={64}
                 height={64}
@@ -60,35 +89,19 @@ export function ProfileForm(initial: ProfileFormProps) {
               />
             ) : null}
           </div>
-          <div>
-            {uploadPreset ? (
-              <CldUploadWidget
-                uploadPreset={uploadPreset}
-                onSuccess={(result) => {
-                  const secureUrl =
-                    (result?.info as { secure_url?: string })?.secure_url ??
-                    null;
-                  if (secureUrl) {
-                    setAvatarUrl(secureUrl);
-                  }
-                }}
-              >
-                {({ open }) => (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => open()}
-                  >
-                    Загрузить аватар
-                  </Button>
-                )}
-              </CldUploadWidget>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Укажите NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET для загрузки
-                аватара.
-              </p>
-            )}
+          <div className="space-y-1">
+            <Label htmlFor="avatar" className="flex items-center gap-2">
+              <Upload className="size-4" />
+              Фото профиля
+            </Label>
+            <Input
+              id="avatar"
+              type="file"
+              accept="image/*"
+              onChange={(event) =>
+                setAvatarFile(event.target.files?.[0] ?? null)
+              }
+            />
           </div>
         </div>
 
@@ -115,7 +128,14 @@ export function ProfileForm(initial: ProfileFormProps) {
               required
             />
           </div>
-          <Button type="submit">Сохранить</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save className="size-4" />
+            )}
+            {isSubmitting ? "Сохраняем..." : "Сохранить"}
+          </Button>
         </form>
 
         {status ? (

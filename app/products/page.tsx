@@ -1,6 +1,6 @@
 import { UserRole } from "@prisma/client";
+import Image from "next/image";
 import { redirect } from "next/navigation";
-import { CldImage } from "next-cloudinary";
 import {
   Card,
   CardContent,
@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CreateProductForm } from "@/src/features/products/create-product-form";
+import { CreateProductModal } from "@/src/features/products/create-product-modal";
 import { getSessionFromCookies } from "@/src/shared/lib/auth";
 import { prisma } from "@/src/shared/lib/prisma";
 
@@ -33,7 +33,7 @@ export default async function ProductsPage() {
         </p>
       </div>
 
-      {isAdmin ? <CreateProductForm /> : null}
+      {isAdmin ? <CreateProductModal /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {products.map((product) => (
@@ -52,12 +52,11 @@ export default async function ProductsPage() {
                     key={image}
                     className="overflow-hidden rounded-md border"
                   >
-                    <CldImage
+                    <Image
                       src={image}
                       alt={product.name}
                       width={220}
                       height={150}
-                      crop="fill"
                       className="h-24 w-full object-cover"
                     />
                   </div>

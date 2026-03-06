@@ -1,5 +1,6 @@
 "use client";
 
+import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -66,6 +67,7 @@ export function LoginForm() {
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={isLoading}>
+            <LogIn className="size-4" />
             {isLoading ? "Входим..." : "Войти"}
           </Button>
         </form>

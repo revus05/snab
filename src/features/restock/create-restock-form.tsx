@@ -1,5 +1,6 @@
 "use client";
 
+import { SendHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,10 @@ export function CreateRestockForm({
           required
         />
       </div>
-      <Button type="submit">Создать заявку на пополнение</Button>
+      <Button type="submit">
+        <SendHorizontal className="size-4" />
+        Создать заявку на пополнение
+      </Button>
       {status ? (
         <p className="text-sm text-muted-foreground">{status}</p>
       ) : null}

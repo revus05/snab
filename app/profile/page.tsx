@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { LogoutButton } from "@/src/features/auth/logout-button";
 import { ProfileForm } from "@/src/features/profile/profile-form";
 import { getSessionFromCookies } from "@/src/shared/lib/auth";
 import { prisma } from "@/src/shared/lib/prisma";
@@ -24,7 +25,11 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="max-w-xl">
+    <div className="max-w-xl space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Профиль</h1>
+        <LogoutButton />
+      </div>
       <ProfileForm
         email={user.email}
         firstName={user.firstName}

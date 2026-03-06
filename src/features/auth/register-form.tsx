@@ -1,5 +1,6 @@
 "use client";
 
+import { UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -96,6 +97,7 @@ export function RegisterForm() {
           </div>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={isLoading}>
+            <UserPlus className="size-4" />
             {isLoading ? "Создаем..." : "Создать аккаунт"}
           </Button>
         </form>
